@@ -29,10 +29,11 @@ SENT_PATH = "data/tweets_sentiment.csv"
 # Streamlit Secrets for Twitter
 # -----------------------------
 try:
-    api_key = st.secrets["TWITTER_API_KEY"]
-    api_secret = st.secrets["TWITTER_API_SECRET"]
-    access_token = st.secrets["TWITTER_ACCESS_TOKEN"]
-    access_secret = st.secrets["TWITTER_ACCESS_SECRET"]
+    api_key = st.secrets["API_KEY"]
+    api_secret = st.secrets["API_KEY_SECRET"]
+    access_token = st.secrets["ACCESS_TOKEN"]
+    access_secret = st.secrets["ACCESS_TOKEN_SECRET"]
+    bearer_token = st.secrets["BEARER_TOKEN"]
 
     auth = tweepy.OAuth1UserHandler(api_key, api_secret, access_token, access_secret)
     twitter_api = tweepy.API(auth)

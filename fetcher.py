@@ -12,7 +12,10 @@ client = tweepy.Client(bearer_token=bearer_token)
 print("Connected to Twitter API ✅")
 
 # Search for tweets
-def fetch_tweets(keyword: str, num_tweets: int, output_file: str = "data/tweets.csv"):
+def fetch_tweets(keyword: str, num_tweets: int, output_file: str = "data/tweets.csv", api = None):
+    if api is None:
+        raise ValueError("Twitter API object not provided. Pass 'api' from st.secrets in Streamlit.")
+    
     query = f"{keyword} -is:retweet lang:en"
     tweets = client.search_recent_tweets(query=query, max_results=num_tweets)
 

@@ -18,14 +18,31 @@ nltk.download('vader_lexicon', quiet=True)
 
 # Page config
 st.set_page_config(page_title="Twitter Sentiment Analysis", layout="wide")
-st.title("🐦 Twitter Sentiment Analysis")
+st.title("Twitter Sentiment Analysis")
 
 # File paths
 RAW_PATH = "data/tweets.csv"
 CLEAN_PATH = "data/tweets_clean.csv"
 SENT_PATH = "data/tweets_sentiment.csv"
 
+# -----------------------------
+# Streamlit Secrets for Twitter
+# -----------------------------
+try:
+    api_key = st.secrets["TWITTER_API_KEY"]
+    api_secret = st.secrets["TWITTER_API_SECRET"]
+    access_token = st.secrets["TWITTER_ACCESS_TOKEN"]
+    access_secret = st.secrets["TWITTER_ACCESS_SECRET"]
+
+    auth = tweepy.OAuth1UserHandler(api_key, api_secret, access_token, access_secret)
+    twitter_api = tweepy.API(auth)
+except KeyError:
+    st.error("Twitter API keys not found in Streamlit secrets. Please add them in TOML format.")
+    st.stop()
+
+# -----------------------------
 # Sidebar: inputs
+# -----------------------------
 with st.sidebar:
     st.header("Fetch options")
     keyword = st.text_input("Keyword", value="Apple")
@@ -34,7 +51,9 @@ with st.sidebar:
     refetch = st.checkbox("Force refetch (overwrite saved file)", value=False)
     run_btn = st.button("Run analysis")
 
-# helper plotting utilities
+# -----------------------------
+# Helper plotting utilities
+# -----------------------------
 def plot_sentiment_pie(labels_series, title="Sentiment distribution"):
     fig, ax = plt.subplots(figsize=(2,2))
     counts = labels_series.value_counts()
@@ -72,23 +91,23 @@ def infer_label_series(df):
             lambda t: "Positive" if sia.polarity_scores(t)["compound"] >= 0.05
             else ("Negative" if sia.polarity_scores(t)["compound"] <= -0.05 else "Neutral")
         )
-    # last fallback: use raw 'text' column
     if "text" in df.columns:
         return df["text"].astype(str).apply(
             lambda t: "Positive" if sia.polarity_scores(t)["compound"] >= 0.05
             else ("Negative" if sia.polarity_scores(t)["compound"] <= -0.05 else "Neutral")
         )
-    # if nothing exists, return empty Series
     return pd.Series([], dtype="object")
 
-# Run pipeline when button pressed
+# -----------------------------
+# Run pipeline
+# -----------------------------
 if run_btn:
     # Decide whether to fetch
     should_fetch = refetch or (not use_saved) or (not os.path.exists(RAW_PATH))
     if should_fetch:
         try:
             with st.spinner(f"Fetching {num_tweets} tweets for '{keyword}'..."):
-                fetch_tweets(keyword, num_tweets, RAW_PATH)
+                fetch_tweets(keyword, num_tweets, RAW_PATH, twitter_api)
         except tweepy.errors.TooManyRequests:
             st.error("Twitter API rate limit reached. Using existing tweets file if available.")
             if not os.path.exists(RAW_PATH):
@@ -120,12 +139,10 @@ if run_btn:
     if os.path.exists(SENT_PATH):
         df = pd.read_csv(SENT_PATH)
         st.success("✅ Analysis complete")
-        # basic info
         st.markdown(f"**Total rows in sentiment file:** {len(df)}")
         st.subheader("Sample (first 10 rows)")
         st.dataframe(df.head(10))
 
-        # infer a label column
         labels = infer_label_series(df)
         if labels.empty:
             st.warning("Could not find or infer sentiment labels. Showing raw data only.")
@@ -133,26 +150,17 @@ if run_btn:
             fig_pie = plot_sentiment_pie(labels, title="Sentiment distribution")
             st.pyplot(fig_pie)
 
-            # bar chart
             counts = labels.value_counts()
             st.bar_chart(counts)
 
-        # wordcloud (uses cleaned text if available)
-        text_column = None
-        if "clean_text" in df.columns:
-            text_column = df["clean_text"].astype(str).tolist()
-        elif "text" in df.columns:
-            text_column = df["text"].astype(str).tolist()
-
+        text_column = df["clean_text"].astype(str).tolist() if "clean_text" in df.columns else df["text"].astype(str).tolist()
         if text_column:
             fig_wc = plot_wordcloud_from_texts(text_column)
             if fig_wc:
                 st.subheader("Word Cloud")
                 st.pyplot(fig_wc)
 
-        # download button
         csv_bytes = df.to_csv(index=False).encode("utf-8")
         st.download_button("Download sentiment CSV", csv_bytes, file_name="tweets_sentiment.csv", mime="text/csv")
-
     else:
         st.error(f"No sentiment file found at {SENT_PATH}.")

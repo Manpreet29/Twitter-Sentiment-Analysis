@@ -1,0 +1,12 @@
+tweepy
+python-dotenv
+pandas
+numpy
+matplotlib
+wordcloud
+textblob
+vaderSentiment
+nltk
+scikit-learn
+jupyter
+streamlit
